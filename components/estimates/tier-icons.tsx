@@ -6,7 +6,9 @@ import type { ComplexityLevel, Department } from "@/lib/engine/types";
  * representative show photos for other departments/tiers.
  */
 const TIER_PHOTOS: Partial<Record<Department, Partial<Record<ComplexityLevel, string>>>> = {
-  LIGHTING: { MEDIUM: "/images/tiers/lighting-medium.jpg" },
+  AUDIO: { SMALL: "/images/tiers/audio-small.jpg", MEDIUM: "/images/tiers/audio-medium.jpg", LARGE: "/images/tiers/audio-large.jpg" },
+  LED: { MEDIUM: "/images/tiers/led-medium.jpg" },
+  LIGHTING: { MEDIUM: "/images/tiers/lighting-medium.jpg", LARGE: "/images/tiers/lighting-large.jpg" },
 };
 
 export function tierPhoto(department: Department | undefined, level: ComplexityLevel): string | undefined {
