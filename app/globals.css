@@ -40,8 +40,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Dark values apply automatically by OS preference, unless the user has
+ * explicitly picked a mode (see ThemeToggle, which sets `data-theme` on
+ * <html> and persists it to localStorage) — `:not([data-theme="light"])`
+ * lets an explicit "dark" choice match here too, without duplicating values.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #15130f;
     --foreground: #ecebe7;
     --surface: #1d1a15;
@@ -55,6 +61,36 @@
     --sidebar-muted: #8a8377;
     --sidebar-active: #1e1a15;
     --muted-foreground: #a39d93;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #15130f;
+  --foreground: #ecebe7;
+  --surface: #1d1a15;
+  --surface-muted: #26221c;
+  --border: #35302a;
+  --accent: #f97316;
+  --accent-foreground: #1c1917;
+  --accent-soft: #3a2413;
+  --sidebar-bg: #100e0b;
+  --sidebar-fg: #e7e4df;
+  --sidebar-muted: #8a8377;
+  --sidebar-active: #1e1a15;
+  --muted-foreground: #a39d93;
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
   }
 }
 

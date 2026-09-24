@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { SidebarNav } from "./sidebar-nav";
+import { ThemeToggle } from "./theme-toggle";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -10,10 +11,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <p className="text-xs text-sidebar-muted">Quoting &amp; Budget Estimator</p>
         </div>
         <SidebarNav />
+        <div className="mt-auto px-5 pt-4">
+          <ThemeToggle />
+        </div>
       </aside>
       <div className="flex min-h-full flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3 md:hidden">
           <p className="text-sm font-semibold">OTL Quoting</p>
+          <ThemeToggle />
         </header>
         <main className="flex-1 px-6 py-8 md:px-10">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
