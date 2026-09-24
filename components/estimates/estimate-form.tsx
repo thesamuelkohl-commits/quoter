@@ -163,7 +163,11 @@ export function EstimateForm({
                 </summary>
                 <div className="mt-3 flex flex-col gap-3">
                   <Field label="Scale">
-                    <ComplexityPicker name={`dept_${section.department}`} defaultValue={dep?.complexityLevel ?? "NONE"} />
+                    <ComplexityPicker
+                      name={`dept_${section.department}`}
+                      defaultValue={dep?.complexityLevel ?? "NONE"}
+                      department={section.department}
+                    />
                   </Field>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {section.department === "VIDEO" && (

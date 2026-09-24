@@ -1,4 +1,18 @@
-import type { ComplexityLevel } from "@/lib/engine/types";
+import type { ComplexityLevel, Department } from "@/lib/engine/types";
+
+/**
+ * Real reference photos for specific department/tier combinations, used in
+ * place of the abstract TierIcon when available. Add more as OTL supplies
+ * representative show photos for other departments/tiers.
+ */
+const TIER_PHOTOS: Partial<Record<Department, Partial<Record<ComplexityLevel, string>>>> = {
+  LIGHTING: { MEDIUM: "/images/tiers/lighting-medium.jpg" },
+};
+
+export function tierPhoto(department: Department | undefined, level: ComplexityLevel): string | undefined {
+  if (!department) return undefined;
+  return TIER_PHOTOS[department]?.[level];
+}
 
 /**
  * Small pictographs standing in for event scale (None/Small/Medium/Large/Arena)
