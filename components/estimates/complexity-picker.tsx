@@ -86,7 +86,7 @@ export function ComplexityPicker({
 
       <div
         className={[
-          "hidden h-28 w-40 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-muted shadow-sm",
+          "hidden h-56 w-80 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-muted shadow-sm sm:h-64 sm:w-96",
           PREVIEW_PANEL_VISIBLE_CLASS.SMALL,
           PREVIEW_PANEL_VISIBLE_CLASS.MEDIUM,
           PREVIEW_PANEL_VISIBLE_CLASS.LARGE,
@@ -95,21 +95,55 @@ export function ComplexityPicker({
       >
         {PREVIEW_LEVELS.map((level) => {
           const photo = tierPhoto(department, level);
+          const anchorId = `${name}-preview-${level}`;
+          const lightboxId = `${name}-lightbox-${level}`;
           return (
-            <div
+            <a
               key={level}
-              className={`hidden h-full w-full items-center justify-center p-3 text-accent ${PREVIEW_LAYER_VISIBLE_CLASS[level]}`}
+              id={anchorId}
+              href={`#${lightboxId}`}
+              className={`hidden h-full w-full cursor-zoom-in items-center justify-center p-3 text-accent ${PREVIEW_LAYER_VISIBLE_CLASS[level]}`}
             >
               {photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt={`${LABELS[level]} reference`} className="h-full w-full rounded object-cover" />
+                <img src={photo} alt={`${LABELS[level]} reference — click to enlarge`} className="h-full w-full rounded object-cover" />
               ) : (
-                <TierIcon level={level} className="h-20 w-20" />
+                <TierIcon level={level} className="h-24 w-24" />
               )}
-            </div>
+            </a>
           );
         })}
       </div>
+
+      {PREVIEW_LEVELS.map((level) => {
+        const photo = tierPhoto(department, level);
+        const anchorId = `${name}-preview-${level}`;
+        const lightboxId = `${name}-lightbox-${level}`;
+        return (
+          <div
+            key={level}
+            id={lightboxId}
+            className="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 p-6 [&:target]:flex"
+          >
+            <a href={`#${anchorId}`} className="absolute inset-0" aria-label="Close" />
+            <div className="relative">
+              {photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photo} alt={`${LABELS[level]} reference`} className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />
+              ) : (
+                <TierIcon level={level} className="h-64 w-64 text-white" />
+              )}
+              <a
+                href={`#${anchorId}`}
+                aria-label="Close"
+                className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg font-medium leading-none text-black shadow"
+              >
+                &times;
+              </a>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
