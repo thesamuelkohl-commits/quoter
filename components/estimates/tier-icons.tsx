@@ -7,7 +7,7 @@ import type { ComplexityLevel, Department } from "@/lib/engine/types";
  */
 const TIER_PHOTOS: Partial<Record<Department, Partial<Record<ComplexityLevel, string>>>> = {
   AUDIO: { SMALL: "/images/tiers/audio-small.jpg", MEDIUM: "/images/tiers/audio-medium.jpg", LARGE: "/images/tiers/audio-large.jpg" },
-  LED: { MEDIUM: "/images/tiers/led-medium.jpg" },
+  LED: { MEDIUM: "/images/tiers/led-medium.jpg", LARGE: "/images/tiers/led-large.jpg" },
   LIGHTING: { MEDIUM: "/images/tiers/lighting-medium.jpg", LARGE: "/images/tiers/lighting-large.jpg" },
   VIDEO: { SMALL: "/images/tiers/video-small.jpg", MEDIUM: "/images/tiers/video-medium.jpg", ARENA: "/images/tiers/video-arena.jpg" },
 };
