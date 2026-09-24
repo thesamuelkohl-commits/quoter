@@ -51,7 +51,7 @@ export default async function HistoricalShowsPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">{e.eventType ?? "—"}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{[e.city, e.state].filter(Boolean).join(", ") || "—"}</td>
                   <td className="px-4 py-2.5">{e.attendees ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{e.eventDate ? new Date(e.eventDate).toLocaleDateString() : "—"}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{e.eventDate ? new Date(e.eventDate).toLocaleDateString("en-US", { timeZone: "UTC" }) : "—"}</td>
                   <td className="px-4 py-2.5">{e.finalSellingPrice ? `$${Math.round(e.finalSellingPrice).toLocaleString()}` : "—"}</td>
                   <td className="px-4 py-2.5">
                     <Badge tone={e.dataQuality === "VERIFIED" ? "success" : "warning"}>{e.dataQuality.replace("_", " ")}</Badge>

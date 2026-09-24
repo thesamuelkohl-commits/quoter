@@ -40,7 +40,7 @@ export default async function HistoricalShowDetailPage({ params }: { params: Pro
     ["Lighting complexity", event.lightingComplexity],
     ["Scenic complexity", event.scenicComplexity],
     ["Union labor", event.unionLabor === null ? null : event.unionLabor ? "Yes" : "No"],
-    ["Event date", event.eventDate ? new Date(event.eventDate).toLocaleDateString() : null],
+    ["Event date", event.eventDate ? new Date(event.eventDate).toLocaleDateString("en-US", { timeZone: "UTC" }) : null],
   ];
 
   const financials: [string, string][] = [
