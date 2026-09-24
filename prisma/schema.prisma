@@ -219,11 +219,13 @@ model Estimate {
   numBreakoutRooms                Int?
   numSimultaneousBreakoutRooms    Int?
   showStartDate                   DateTime?
+  showEndDate                     DateTime?
   setupDays                       Float?
   rehearsalDays                   Float?
   rehearsalHours                  Float?
   showDays                        Float?
   strikeDays                      Float?
+  darkDays                        Float?   @default(0)
   dailySchedule                   Json?
   unionLabor                      Boolean  @default(false)
   isTravelGig                     Boolean  @default(false)

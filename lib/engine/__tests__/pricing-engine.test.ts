@@ -7,6 +7,8 @@ import {
   sumLineItems,
   departmentSubtotals,
   weightedAverage,
+  dayRateMultiplier,
+  gearRentalTierMultiplier,
   HOLIDAY_SURCHARGE_RATE,
   WEEKEND_STAGEHAND_SURCHARGE_RATE,
   type ScheduleDays,
@@ -66,6 +68,63 @@ describe("computeEquipmentLineItems", () => {
     ]);
     expect(departmentSubtotals(lineItems)).toEqual({ AUDIO: 100, VIDEO: 250 });
   });
+
+  it("scales rental-gear departments by the rental tier multiplier", () => {
+    const lineItems = computeEquipmentLineItems(
+      [{ department: "AUDIO", complexityLevel: "SMALL", packageId: "p1", packageName: "a", items: [{ equipmentItemId: "e1", name: "n", category: "c", department: "AUDIO", quantity: 2, sellRate: 100 }] }],
+      3,
+    );
+    expect(lineItems[0].unitPrice).toBe(300);
+    expect(lineItems[0].extendedPrice).toBe(600);
+  });
+
+  it("does not scale Trucking/Travel by the rental tier multiplier", () => {
+    const lineItems = computeEquipmentLineItems(
+      [
+        { department: "TRUCKING", complexityLevel: "SMALL", packageId: "p1", packageName: "a", items: [{ equipmentItemId: "e1", name: "n", category: "c", department: "TRUCKING", quantity: 1, sellRate: 500 }] },
+        { department: "TRAVEL", complexityLevel: "SMALL", packageId: "p2", packageName: "b", items: [{ equipmentItemId: "e2", name: "n", category: "c", department: "TRAVEL", quantity: 1, sellRate: 200 }] },
+      ],
+      4,
+    );
+    expect(lineItems[0].extendedPrice).toBe(500);
+    expect(lineItems[1].extendedPrice).toBe(200);
+  });
+});
+
+describe("gearRentalTierMultiplier", () => {
+  it("returns 1x for a single day", () => {
+    expect(gearRentalTierMultiplier(1)).toBe(1);
+  });
+  it("returns 2x for 2-7 days", () => {
+    expect(gearRentalTierMultiplier(2)).toBe(2);
+    expect(gearRentalTierMultiplier(7)).toBe(2);
+  });
+  it("returns 3x for 8-13 days", () => {
+    expect(gearRentalTierMultiplier(8)).toBe(3);
+    expect(gearRentalTierMultiplier(13)).toBe(3);
+  });
+  it("returns 4x for 14+ days", () => {
+    expect(gearRentalTierMultiplier(14)).toBe(4);
+    expect(gearRentalTierMultiplier(30)).toBe(4);
+  });
+});
+
+describe("dayRateMultiplier", () => {
+  it("is 1x at or under 12 hours", () => {
+    expect(dayRateMultiplier(12)).toBe(1);
+    expect(dayRateMultiplier(8)).toBe(1);
+  });
+  it("is 1.25x between 12 and 14 hours", () => {
+    expect(dayRateMultiplier(13)).toBe(1.25);
+    expect(dayRateMultiplier(14)).toBe(1.25);
+  });
+  it("is 1.5x between 14 and 16 hours", () => {
+    expect(dayRateMultiplier(15)).toBe(1.5);
+    expect(dayRateMultiplier(16)).toBe(1.5);
+  });
+  it("is clamped at the 16-hour cap", () => {
+    expect(dayRateMultiplier(20)).toBe(1.5);
+  });
 });
 
 const baseCrewItem: CrewPlanItem = {
@@ -102,16 +161,47 @@ describe("computeCrewCost", () => {
     expect(result.totalCost).toBe(4 * 800);
   });
 
-  it("flags and prices overtime when the daily schedule exceeds 12 hours", () => {
+  it("bills the day-rate tier multiplier when the daily schedule exceeds 12 hours", () => {
     const result = computeCrewCost(
       baseCrewItem,
       { rateType: "DAY", standardRate: 1200, overtimeMultiplier: 1.5, minimumCallHours: 8 },
       schedule({ showDays: 2, hoursPerDay: 16 }),
     );
-    // 4 overtime hours/show day x 2 show days = 8 OT hours
+    // 4 overtime hours/show day x 2 show days = 8 OT hours (informational)
     expect(result.overtimeHours).toBe(8);
-    expect(result.overtimeRate).toBeCloseTo((1200 / 12) * 1.5);
-    expect(result.totalCost).toBeGreaterThan(2 * 1200); // base + overtime
+    // 14-16hr day -> 1.5x tier multiplier (repurposed overtimeRate field)
+    expect(result.overtimeRate).toBe(1.5);
+    // base 2 x 1200 = 2400, tier premium 2 x 1200 x 0.5 = 1200
+    expect(result.totalCost).toBe(3600);
+  });
+
+  it("bills the 1.25x tier for a 12-14 hour day", () => {
+    const result = computeCrewCost(
+      baseCrewItem,
+      { rateType: "DAY", standardRate: 1000, overtimeMultiplier: 1.5, minimumCallHours: 8 },
+      schedule({ showDays: 1, hoursPerDay: 13 }),
+    );
+    expect(result.overtimeRate).toBe(1.25);
+    expect(result.totalCost).toBe(1250);
+  });
+
+  it("clamps at the 16-hour cap for both DAY and HOURLY positions", () => {
+    const dayResult = computeCrewCost(
+      baseCrewItem,
+      { rateType: "DAY", standardRate: 1000, overtimeMultiplier: 1.5, minimumCallHours: 8 },
+      schedule({ showDays: 1, hoursPerDay: 20 }),
+    );
+    expect(dayResult.overtimeHours).toBe(4); // clamped to 16 - 12
+    expect(dayResult.totalCost).toBe(1500); // still just the 1.5x tier, not higher
+
+    const stagehand: CrewPlanItem = { ...baseCrewItem, positionName: "Stagehand" };
+    const hourlyResult = computeCrewCost(
+      stagehand,
+      { rateType: "HOURLY", standardRate: 45, overtimeMultiplier: 1.5, minimumCallHours: 8 },
+      schedule({ showDays: 1, hoursPerDay: 20 }),
+    );
+    // day-equivalent rate = 45 x 12 = 540; 1.5x tier -> 810
+    expect(hourlyResult.totalCost).toBe(810);
   });
 
   it("multiplies by crew quantity", () => {
@@ -180,7 +270,7 @@ describe("computeCrewCost", () => {
       { rateType: "DAY", standardRate: 1000, overtimeMultiplier: 1.5, minimumCallHours: 8 },
       schedule({ showDays: 2, weekendDayCount: 1 }),
     );
-    // half of the 2 working days are a weekend day -> 15% premium on half of base pay
+    // half of the 2 working days are a weekend day -> 25% premium on half of base pay
     expect(result.weekendSurcharge).toBeCloseTo(2000 * 0.5 * WEEKEND_STAGEHAND_SURCHARGE_RATE);
 
     const other = computeCrewCost(

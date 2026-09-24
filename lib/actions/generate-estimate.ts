@@ -11,6 +11,7 @@ import {
   sumLineItems,
   departmentSubtotals,
   scheduleGeneratesOvertime,
+  gearRentalTierMultiplier,
   STANDARD_HOURS_PER_DAY,
   HOLIDAY_SURCHARGE_RATE,
   WEEKEND_STAGEHAND_SURCHARGE_RATE,
@@ -63,6 +64,7 @@ export async function generateEstimateResult(estimateId: string) {
   if (strikeDays.assumed) assumptions.push({ fieldName: "strikeDays", assumptionText: "Strike days not provided — assumed 1 strike day.", confidence: "MEDIUM" });
 
   const rehearsalDays = withDefault(estimate.rehearsalDays, 0);
+  const darkDays = withDefault(estimate.darkDays, 0);
 
   const numGeneralSessionRooms = withDefault(estimate.numGeneralSessionRooms, 1);
   const numBreakoutRooms = withDefault(estimate.numBreakoutRooms, 0);
@@ -241,6 +243,11 @@ export async function generateEstimateResult(estimateId: string) {
   const laborRates = await prisma.laborRate.findMany({ where: { region: "default", active: true } });
   const rateByPosition = new Map(laborRates.map((r) => [r.positionId, r]));
 
+  // On-site days (for gear rental tiers) includes dark days — the crew doesn't
+  // work them, but the gear is still parked on site the whole span.
+  const totalOnSiteDays = setupDays.value + rehearsalDays.value + showDays.value + strikeDays.value + darkDays.value;
+  const gearRentalMultiplier = gearRentalTierMultiplier(totalOnSiteDays);
+
   let weekendDayCount = 0;
   if (estimate.showStartDate) {
     const engagementDates = buildEngagementDates(estimate.showStartDate, {
@@ -250,6 +257,22 @@ export async function generateEstimateResult(estimateId: string) {
       strikeDays: strikeDays.value,
     });
     weekendDayCount = countWeekendDays(engagementDates);
+
+    if (estimate.showEndDate) {
+      const engagementStart = engagementDates[0] ?? estimate.showStartDate;
+      const expectedEnd = new Date(engagementStart);
+      expectedEnd.setUTCDate(expectedEnd.getUTCDate() + Math.max(totalOnSiteDays - 1, 0));
+      const actualEnd = new Date(estimate.showEndDate);
+      actualEnd.setUTCHours(0, 0, 0, 0);
+      if (expectedEnd.getTime() !== actualEnd.getTime()) {
+        const fmt = (d: Date) => d.toLocaleDateString("en-US", { timeZone: "UTC" });
+        assumptions.push({
+          fieldName: "showEndDate",
+          assumptionText: `Entered show end date (${fmt(actualEnd)}) doesn't match the ${totalOnSiteDays} on-site day(s) implied by the day counts (expected ${fmt(expectedEnd)}) — confirm which is right.`,
+          confidence: "LOW",
+        });
+      }
+    }
   } else {
     assumptions.push({ fieldName: "showStartDate", assumptionText: "Show start date not provided — weekend Stagehand premiums could not be checked.", confidence: "LOW" });
   }
@@ -336,7 +359,7 @@ export async function generateEstimateResult(estimateId: string) {
     }
   }
 
-  const lineItems: ComputedLineItem[] = [...computeEquipmentLineItems(selectedPackages), ...addOnLineItems];
+  const lineItems: ComputedLineItem[] = [...computeEquipmentLineItems(selectedPackages, gearRentalMultiplier), ...addOnLineItems];
   const equipmentTotal = sumLineItems(lineItems);
   const laborTotal = computedCrew.reduce((sum, c) => sum + c.totalCost, 0);
   const travelLaborTotal = computedCrew.reduce((sum, c) => sum + c.travelCost, 0);
@@ -384,6 +407,8 @@ export async function generateEstimateResult(estimateId: string) {
     ...(estimate.isTravelGig ? ["Travel gig — each crew member is charged a half-day rate each way (there and home)"] : []),
     ...(estimate.isHoliday ? [`Holiday show — flat ${Math.round(HOLIDAY_SURCHARGE_RATE * 100)}% crew cost surcharge applied`] : []),
     ...(weekendSurchargeTotal > 0 ? [`${weekendDayCount} weekend day(s) in schedule — ${Math.round(WEEKEND_STAGEHAND_SURCHARGE_RATE * 100)}% Stagehand premium applied`] : []),
+    ...(gearRentalMultiplier > 1 ? [`Multi-day gear rental: ${gearRentalMultiplier}x tier applied (${totalOnSiteDays} total on-site days)`] : []),
+    ...(darkDays.value > 0 ? [`${darkDays.value} dark/dead day(s) — no crew cost, still counted toward gear rental length`] : []),
   ];
 
   const explanation = {

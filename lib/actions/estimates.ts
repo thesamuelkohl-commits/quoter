@@ -89,9 +89,11 @@ async function resolveClientId(formData: FormData): Promise<string | null> {
 function estimateFieldsFromForm(formData: FormData) {
   const hoursPerDay = num(formData, "hoursPerDay");
   const showStartDate = str(formData, "showStartDate");
+  const showEndDate = str(formData, "showEndDate");
   return {
     eventName: str(formData, "eventName") ?? "Untitled Estimate",
     showStartDate: showStartDate ? new Date(showStartDate) : null,
+    showEndDate: showEndDate ? new Date(showEndDate) : null,
     city: str(formData, "city"),
     state: str(formData, "state"),
     attendees: num(formData, "attendees"),
@@ -104,6 +106,7 @@ function estimateFieldsFromForm(formData: FormData) {
     rehearsalHours: num(formData, "rehearsalHours"),
     showDays: num(formData, "showDays"),
     strikeDays: num(formData, "strikeDays"),
+    darkDays: num(formData, "darkDays"),
     dailySchedule: hoursPerDay ? { hoursPerDay } : undefined,
     unionLabor: bool(formData, "unionLabor"),
     isTravelGig: bool(formData, "isTravelGig"),

@@ -34,11 +34,13 @@ export interface EstimateFormValues {
   numBreakoutRooms?: number | null;
   numSimultaneousBreakoutRooms?: number | null;
   showStartDate?: string;
+  showEndDate?: string;
   hoursPerDay?: number | null;
   setupDays?: number | null;
   rehearsalDays?: number | null;
   showDays?: number | null;
   strikeDays?: number | null;
+  darkDays?: number | null;
   unionLabor?: boolean;
   isTravelGig?: boolean;
   isHoliday?: boolean;
@@ -104,20 +106,23 @@ export function EstimateForm({
           <Field label="Show start date *" hint="First show day — anchors the whole schedule so weekend work can be detected">
             <TextInput name="showStartDate" type="date" required defaultValue={v.showStartDate} />
           </Field>
+          <Field label="Show end date" hint="Optional — cross-checked against the day counts below; mismatches are flagged, not blocked">
+            <TextInput name="showEndDate" type="date" defaultValue={v.showEndDate} />
+          </Field>
           <Field label="General session rooms">
             <TextInput name="numGeneralSessionRooms" type="number" min={0} defaultValue={v.numGeneralSessionRooms ?? undefined} placeholder="1" />
           </Field>
           <Field label="Breakout rooms">
-            <TextInput name="numBreakoutRooms" type="number" min={0} defaultValue={v.numBreakoutRooms ?? undefined} placeholder="6" />
+            <TextInput name="numBreakoutRooms" type="number" min={0} defaultValue={v.numBreakoutRooms ?? 0} placeholder="6" />
           </Field>
           <Field label="Simultaneous breakout rooms" hint="Defaults to all breakout rooms if left blank">
-            <TextInput name="numSimultaneousBreakoutRooms" type="number" min={0} defaultValue={v.numSimultaneousBreakoutRooms ?? undefined} placeholder="4" />
+            <TextInput name="numSimultaneousBreakoutRooms" type="number" min={0} defaultValue={v.numSimultaneousBreakoutRooms ?? 0} placeholder="4" />
           </Field>
-          <Field label="Expected hours / show day" hint="Standard day is 12 hours before overtime">
-            <TextInput name="hoursPerDay" type="number" min={1} max={24} defaultValue={v.hoursPerDay ?? undefined} placeholder="12" />
+          <Field label="Expected hours / show day" hint="12 standard · 1.25x day rate 12–14hrs · 1.5x 14–16hrs · capped at 16">
+            <TextInput name="hoursPerDay" type="number" min={1} max={16} defaultValue={v.hoursPerDay ?? undefined} placeholder="12" />
           </Field>
           <Field label="Setup days" hint="Leave at 0 if setup happens same-day as the show">
-            <TextInput name="setupDays" type="number" min={0} defaultValue={v.setupDays ?? undefined} placeholder="2" />
+            <TextInput name="setupDays" type="number" min={0} defaultValue={v.setupDays ?? 0} placeholder="2" />
           </Field>
           <Field label="Rehearsal days" hint="Leave at 0 if rehearsal happens same-day as the show">
             <TextInput name="rehearsalDays" type="number" min={0} defaultValue={v.rehearsalDays ?? undefined} placeholder="0" />
@@ -126,7 +131,10 @@ export function EstimateForm({
             <TextInput name="showDays" type="number" min={0} defaultValue={v.showDays ?? undefined} placeholder="2" />
           </Field>
           <Field label="Strike days" hint="Leave at 0 if strike happens same-day as the show">
-            <TextInput name="strikeDays" type="number" min={0} defaultValue={v.strikeDays ?? undefined} placeholder="1" />
+            <TextInput name="strikeDays" type="number" min={0} defaultValue={v.strikeDays ?? 0} placeholder="1" />
+          </Field>
+          <Field label="Dark/dead days" hint="On-site but no crew activity — still counts toward gear rental length">
+            <TextInput name="darkDays" type="number" min={0} defaultValue={v.darkDays ?? 0} placeholder="0" />
           </Field>
         </div>
         <div className="mt-4 flex flex-col gap-2">

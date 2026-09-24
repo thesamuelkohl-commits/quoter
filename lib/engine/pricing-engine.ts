@@ -2,6 +2,42 @@ import type { ConfidenceLevel, Department, LineItemSource } from "./types";
 import type { CrewPlanItem } from "./crew-engine";
 
 // ---------------------------------------------------------------------------
+// Gear rental-length tiers
+// ---------------------------------------------------------------------------
+
+/**
+ * Departments actually renting equipment for the run of the show. Trucking
+ * (a flat per-trip cost) and Travel (per-person flights/hotel/per diem, not
+ * rental gear) don't scale with rental duration, so they're deliberately
+ * excluded — Add-ons are flat one-time fees and never go through this path
+ * at all (computed separately in generate-estimate.ts).
+ */
+export const GEAR_RENTAL_TIER_DEPARTMENTS: ReadonlySet<Department> = new Set([
+  "AUDIO",
+  "VIDEO",
+  "STREAMING",
+  "LED",
+  "LIGHTING",
+  "SCENIC",
+  "COMMUNICATIONS",
+  "RIGGING",
+  "OTHER",
+]);
+
+/**
+ * OTL's rental-length pricing tiers: a package's sell rate is a 1-day rate,
+ * multiplied up based on how long the gear is actually on site (setup
+ * through strike, including any dark days) — not billed flat regardless of
+ * show length.
+ */
+export function gearRentalTierMultiplier(totalOnSiteDays: number): number {
+  if (totalOnSiteDays <= 1) return 1;
+  if (totalOnSiteDays <= 7) return 2;
+  if (totalOnSiteDays <= 13) return 3;
+  return 4;
+}
+
+// ---------------------------------------------------------------------------
 // Equipment / department pricing
 // ---------------------------------------------------------------------------
 
@@ -37,20 +73,25 @@ export interface ComputedLineItem {
  * Equipment drives the dollar estimate for every non-labor department
  * (audio/video/led/lighting/scenic/comms/rigging/trucking/travel/other):
  * a department's chosen complexity level resolves to an equipment package,
- * and each package item becomes a priced line item.
+ * and each package item becomes a priced line item. A package's sell rate
+ * is a 1-day rate — `rentalTierMultiplier` (see gearRentalTierMultiplier)
+ * scales it up for longer engagements, but only for departments that are
+ * actually rented gear (GEAR_RENTAL_TIER_DEPARTMENTS).
  */
-export function computeEquipmentLineItems(selectedPackages: DepartmentPackageInput[]): ComputedLineItem[] {
+export function computeEquipmentLineItems(selectedPackages: DepartmentPackageInput[], rentalTierMultiplier = 1): ComputedLineItem[] {
   const lineItems: ComputedLineItem[] = [];
   for (const pkg of selectedPackages) {
+    const multiplier = GEAR_RENTAL_TIER_DEPARTMENTS.has(pkg.department) ? rentalTierMultiplier : 1;
     for (const item of pkg.items) {
+      const unitPrice = item.sellRate * multiplier;
       lineItems.push({
         department: pkg.department,
         category: item.category,
         description: item.name,
         equipmentItemId: item.equipmentItemId,
         quantity: item.quantity,
-        unitPrice: item.sellRate,
-        extendedPrice: item.quantity * item.sellRate,
+        unitPrice,
+        extendedPrice: item.quantity * unitPrice,
         source: "RULE",
       });
     }
@@ -100,23 +141,39 @@ export interface ComputedCrewItem extends CrewPlanItem {
 /** OTL's standard day before overtime applies. */
 export const STANDARD_HOURS_PER_DAY = 12;
 
+/** Crew never works past this — clamped defensively even if bad data sneaks in. */
+export const MAX_HOURS_PER_DAY = 16;
+
 /** Checkbox surcharge: +10% on crew cost for a holiday show. */
 export const HOLIDAY_SURCHARGE_RATE = 0.1;
 
 /** Stagehand-only surcharge for weekend work days. */
-export const WEEKEND_STAGEHAND_SURCHARGE_RATE = 0.15;
+export const WEEKEND_STAGEHAND_SURCHARGE_RATE = 0.25;
 const WEEKEND_SURCHARGE_POSITION = "Stagehand";
 
 /**
- * position x quantity x days x hours x rate — never a flat "people x day
- * rate" shortcut. Overtime is assumed to accrue on show days against the
- * planned daily schedule length (a stated assumption, surfaced by the
- * caller), matching the brief's requirement to flag schedules likely to
- * generate overtime. Travel gigs add a half-day rate each way (there and
- * home) per crew member, on top of setup/rehearsal/show/strike days. A
- * holiday show adds a flat 10% to crew cost (checkbox-controlled), and
- * Stagehand work that falls on a weekend day carries its own 15% premium
- * (auto-detected from the entered show dates).
+ * OTL bills overtime as a day-rate tier, not incremental hourly pay: a
+ * 12–14hr day bills the whole day at 1.25x the day rate, 14–16hr at 1.5x.
+ * Hours are clamped to the 16hr hard cap before the lookup.
+ */
+export function dayRateMultiplier(hoursPerDay: number): number {
+  const clamped = Math.min(hoursPerDay, MAX_HOURS_PER_DAY);
+  if (clamped <= STANDARD_HOURS_PER_DAY) return 1;
+  if (clamped <= 14) return 1.25;
+  return 1.5;
+}
+
+/**
+ * position x quantity x days x rate — never a flat "people x day rate"
+ * shortcut. The day-rate tier multiplier (see dayRateMultiplier) applies
+ * only to show days, against each position's day-equivalent rate (DAY rate
+ * type uses its standard rate directly; HOURLY types, e.g. Stagehand, use
+ * standardRate x 12 as their day-equivalent) — setup/rehearsal/strike days
+ * stay at the standard 1x rate. Travel gigs add a half-day rate each way
+ * (there and home) per crew member, on top of setup/rehearsal/show/strike
+ * days. A holiday show adds a flat 10% to crew cost (checkbox-controlled),
+ * and Stagehand work that falls on a weekend day carries its own 25%
+ * premium (auto-detected from the entered show dates).
  */
 export function computeCrewCost(
   item: CrewPlanItem,
@@ -124,26 +181,18 @@ export function computeCrewCost(
   schedule: ScheduleDays,
 ): ComputedCrewItem {
   const totalDays = schedule.setupDays + schedule.rehearsalDays + schedule.showDays + schedule.strikeDays;
-  const overtimeHoursPerShowDay = Math.max(0, schedule.hoursPerDay - STANDARD_HOURS_PER_DAY);
-  const totalOvertimeHours = overtimeHoursPerShowDay * schedule.showDays;
+  const dayEquivalentRate = rate.rateType === "DAY" ? rate.standardRate : rate.standardRate * STANDARD_HOURS_PER_DAY;
 
-  let baseCost: number;
-  let overtimeRate: number;
-  let dayEquivalentRate: number;
+  const clampedHoursPerDay = Math.min(schedule.hoursPerDay, MAX_HOURS_PER_DAY);
+  const totalOvertimeHours = Math.max(0, clampedHoursPerDay - STANDARD_HOURS_PER_DAY) * schedule.showDays;
+  const tierMultiplier = dayRateMultiplier(schedule.hoursPerDay);
 
-  if (rate.rateType === "DAY") {
-    dayEquivalentRate = rate.standardRate;
-    const hourlyEquivalent = rate.standardRate / STANDARD_HOURS_PER_DAY;
-    baseCost = totalDays * rate.standardRate;
-    overtimeRate = hourlyEquivalent * rate.overtimeMultiplier;
-  } else {
-    dayEquivalentRate = rate.standardRate * STANDARD_HOURS_PER_DAY;
-    const regularHoursPerDay = Math.max(Math.min(schedule.hoursPerDay, STANDARD_HOURS_PER_DAY), rate.minimumCallHours);
-    baseCost = regularHoursPerDay * totalDays * rate.standardRate;
-    overtimeRate = rate.standardRate * rate.overtimeMultiplier;
-  }
-
-  const overtimeCost = totalOvertimeHours * overtimeRate;
+  const baseCost = totalDays * dayEquivalentRate;
+  // The tier premium (the part of showDays' cost above the standard 1x rate) — the
+  // "day-rate tier multiplier" repurposes the overtimeRate field to hold the
+  // multiplier itself (1 / 1.25 / 1.5), not a $/hr rate.
+  const overtimeRate = tierMultiplier;
+  const overtimeCost = schedule.showDays * dayEquivalentRate * (tierMultiplier - 1);
 
   // Stagehand weekend premium: applied to the fraction of base pay that falls on a weekend day.
   const weekendFraction = totalDays > 0 ? Math.min(schedule.weekendDayCount, totalDays) / totalDays : 0;
