@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { Card } from "@/components/ui/card";
 import { Badge, confidenceTone } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
+import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 import type { ConfidenceLevel } from "@/lib/engine/types";
 
 export default async function EstimatesListPage() {
@@ -36,6 +37,7 @@ export default async function EstimatesListPage() {
                 <th className="px-4 py-2.5">Most Likely</th>
                 <th className="px-4 py-2.5">Confidence</th>
                 <th className="px-4 py-2.5">Updated</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -57,6 +59,9 @@ export default async function EstimatesListPage() {
                       {result ? <Badge tone={confidenceTone(result.confidenceLevel as ConfidenceLevel)}>{result.confidenceLevel}</Badge> : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{e.updatedAt.toLocaleDateString()}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <DeleteEstimateButton estimateId={e.id} eventName={e.eventName} />
+                    </td>
                   </tr>
                 );
               })}

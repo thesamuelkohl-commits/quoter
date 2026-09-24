@@ -177,6 +177,11 @@ export async function updateEstimate(estimateId: string, formData: FormData) {
   redirect(`/estimates/${estimateId}/results`);
 }
 
+export async function deleteEstimate(estimateId: string) {
+  await prisma.estimate.delete({ where: { id: estimateId } });
+  redirect("/estimates");
+}
+
 export async function regenerateEstimate(estimateId: string) {
   await generateEstimateResult(estimateId);
   redirect(`/estimates/${estimateId}/results`);
