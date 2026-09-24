@@ -67,6 +67,13 @@ export function EstimateForm({
     (v.selectedAddOnIds?.length ?? 0) > 0 ||
     Boolean(v.specialRequirements);
 
+  // Department pickers are an exclusive accordion (see `name="department-picker"`
+  // below) — only one can default open, or the browser's native exclusivity
+  // silently overrides the server-rendered state and causes a hydration mismatch.
+  const defaultOpenDepartment =
+    DEPARTMENT_SECTIONS.find((s) => v.departments?.[s.department]?.complexityLevel !== "NONE" && v.departments?.[s.department])?.department ??
+    "AUDIO";
+
   return (
     <form action={action} className="flex flex-col gap-6">
       <Card>
@@ -169,9 +176,9 @@ export function EstimateForm({
             <div className="flex flex-col divide-y divide-border">
               {DEPARTMENT_SECTIONS.map((section) => {
                 const dep = v.departments?.[section.department];
-                const openByDefault = ["AUDIO", "VIDEO"].includes(section.department) || Boolean(dep && dep.complexityLevel !== "NONE");
+                const openByDefault = section.department === defaultOpenDepartment;
                 return (
-                  <details key={section.department} className="py-3 first:pt-0 last:pb-0" open={openByDefault}>
+                  <details key={section.department} name="department-picker" className="py-3 first:pt-0 last:pb-0" open={openByDefault}>
                     <summary className="flex cursor-pointer items-center justify-between gap-3">
                       <span>
                         <span className="text-sm font-medium text-foreground">{section.label}</span>
