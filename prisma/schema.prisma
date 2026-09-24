@@ -1,0 +1,501 @@
+// OTL Quoting Engine — V1 data model. Hosted on Supabase Postgres.
+//
+// "Enum-like" fields are still plain Strings (validated at the app boundary
+// in lib/engine/types.ts) and money fields are still Float, carried over
+// unchanged from the original SQLite build — Postgres supports real enum and
+// Decimal types, so tightening these up is still a worthwhile future pass,
+// just not part of this migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Reference / lookup
+// ---------------------------------------------------------------------------
+
+model Client {
+  id        String     @id @default(cuid())
+  name      String
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  estimates Estimate[]
+
+  @@map("clients")
+}
+
+model Venue {
+  id                    String     @id @default(cuid())
+  name                  String
+  city                  String?
+  state                 String?
+  unionRequired         Boolean    @default(false)
+  inHouseRestrictions   String?
+  notes                 String?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  estimates             Estimate[]
+
+  @@map("venues")
+}
+
+/// Department is one of: AUDIO, VIDEO, LED, LIGHTING, SCENIC, COMMUNICATIONS,
+/// RIGGING, LABOR, TRUCKING, TRAVEL, OTHER — see lib/engine/types.ts
+model LaborPosition {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  department  String
+  description String?
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  rates       LaborRate[]
+  crewRules   CrewRule[]
+  crewItems   EstimateCrewItem[]
+  historicalCrew HistoricalEventCrew[]
+  learnedPatterns LearnedStaffingPattern[]
+
+  @@map("labor_positions")
+}
+
+/// rateType: DAY | HOURLY
+model LaborRate {
+  id                    String        @id @default(cuid())
+  positionId            String
+  position              LaborPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  region                String        @default("default")
+  rateType              String        @default("DAY")
+  standardRate          Float
+  overtimeMultiplier    Float         @default(1.5)
+  doubleTimeMultiplier  Float         @default(2.0)
+  minimumCallHours      Float         @default(8)
+  union                 Boolean       @default(false)
+  effectiveDate         DateTime      @default(now())
+  active                Boolean       @default(true)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([positionId, region])
+  @@map("labor_rates")
+}
+
+/// unit: FLAT | PER_DAY | PER_PERSON
+model EquipmentItem {
+  id                String   @id @default(cuid())
+  department        String
+  category          String
+  name              String
+  internalDescription String?
+  sellRate          Float
+  cost              Float?
+  unit              String   @default("FLAT")
+  defaultQuantity   Int      @default(1)
+  truckSpaceUnits   Float?
+  crewNotes         String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  packageItems      EquipmentPackageItem[]
+  lineItems         EstimateLineItem[]
+
+  @@index([department, category])
+  @@map("equipment_items")
+}
+
+/// complexityLevel: NONE | BASIC | STANDARD | ENHANCED | COMPLEX | CUSTOM
+model EquipmentPackage {
+  id               String   @id @default(cuid())
+  name             String
+  department       String
+  complexityLevel  String
+  description      String?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  items            EquipmentPackageItem[]
+
+  @@index([department, complexityLevel])
+  @@map("equipment_packages")
+}
+
+model EquipmentPackageItem {
+  id                String           @id @default(cuid())
+  packageId         String
+  package           EquipmentPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  equipmentItemId   String
+  equipmentItem     EquipmentItem    @relation(fields: [equipmentItemId], references: [id], onDelete: Cascade)
+  quantity          Int              @default(1)
+  required          Boolean          @default(true)
+
+  @@map("equipment_package_items")
+}
+
+model TravelAssumption {
+  id                String   @id @default(cuid())
+  city              String
+  state             String?
+  flightRequired    Boolean  @default(false)
+  driveNotes        String?
+  hotelNightlyRate  Float?
+  perDiemRate       Float?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([city, state])
+  @@map("travel_assumptions")
+}
+
+/// rateType: FLAT | PER_MILE
+model TruckingRate {
+  id                String   @id @default(cuid())
+  originRegion      String
+  destinationNotes  String?
+  rateType          String   @default("FLAT")
+  rate              Float
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("trucking_rates")
+}
+
+/// ruleDsl example: { "type": "ratio_ceiling", "inputField": "numSimultaneousBreakoutRooms", "divisor": 2 }
+model CrewRule {
+  id           String        @id @default(cuid())
+  positionId   String
+  position     LaborPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  name         String
+  description  String
+  ruleDsl      Json
+  priority     Int           @default(0)
+  active       Boolean       @default(true)
+  createdBy    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  approvedFromPattern LearnedStaffingPattern[]
+  crewItems    EstimateCrewItem[]
+
+  @@map("crew_rules")
+}
+
+model AppSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Estimates (salesperson-facing)
+// ---------------------------------------------------------------------------
+
+/// status: DRAFT | CALCULATED | REVIEWED
+model Estimate {
+  id                              String   @id @default(cuid())
+  clientId                        String?
+  client                          Client?  @relation(fields: [clientId], references: [id])
+  eventName                       String
+  eventType                       String?
+  venueId                         String?
+  venue                           Venue?   @relation(fields: [venueId], references: [id])
+  city                            String?
+  state                           String?
+  attendees                       Int?
+  roomSqft                        Int?
+  numGeneralSessionRooms          Int?
+  numBreakoutRooms                Int?
+  numSimultaneousBreakoutRooms    Int?
+  showStartDate                   DateTime?
+  setupDays                       Float?
+  rehearsalDays                   Float?
+  rehearsalHours                  Float?
+  showDays                        Float?
+  strikeDays                      Float?
+  dailySchedule                   Json?
+  unionLabor                      Boolean  @default(false)
+  isTravelGig                     Boolean  @default(false)
+  isHoliday                       Boolean  @default(false)
+  targetBudget                    Float?
+  specialRequirements              String?
+  status                          String   @default("DRAFT")
+  createdBy                       String?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  departments   EstimateDepartment[]
+  assumptions   EstimateAssumption[]
+  lineItems     EstimateLineItem[]
+  crewItems     EstimateCrewItem[]
+  comparables   EstimateComparable[]
+  results       EstimateResult[]
+
+  @@map("estimates")
+}
+
+/// department: AUDIO | VIDEO | LED | LIGHTING | SCENIC | COMMUNICATIONS | RIGGING | LABOR | TRUCKING | TRAVEL | OTHER
+/// complexityLevel: NONE | BASIC | STANDARD | ENHANCED | COMPLEX | CUSTOM
+model EstimateDepartment {
+  id                    String   @id @default(cuid())
+  estimateId            String
+  estimate              Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  department            String
+  complexityLevel       String   @default("NONE")
+  requirementsText      String?
+  structuredRequirements Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([estimateId, department])
+  @@map("estimate_departments")
+}
+
+model EstimateAssumption {
+  id             String   @id @default(cuid())
+  estimateId     String
+  estimate       Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  fieldName      String
+  assumptionText String
+  confidence     String   @default("MEDIUM")
+  createdAt      DateTime @default(now())
+
+  @@map("estimate_assumptions")
+}
+
+/// source: RULE | HISTORICAL | MANUAL | AI_SUGGESTED
+model EstimateLineItem {
+  id               String         @id @default(cuid())
+  estimateId       String
+  estimate         Estimate       @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  department       String
+  category         String
+  description      String
+  equipmentItemId  String?
+  equipmentItem    EquipmentItem? @relation(fields: [equipmentItemId], references: [id])
+  quantity         Float          @default(1)
+  unitPrice        Float
+  extendedPrice    Float
+  source           String         @default("RULE")
+  createdAt        DateTime       @default(now())
+
+  @@map("estimate_line_items")
+}
+
+/// rateType: DAY | HOURLY
+/// source: HARD_RULE | LEARNED_PATTERN | MANUAL
+model EstimateCrewItem {
+  id              String        @id @default(cuid())
+  estimateId      String
+  estimate        Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  positionId      String
+  position        LaborPosition @relation(fields: [positionId], references: [id])
+  quantity        Int
+  days            Float
+  hoursPerDay     Float
+  rateType        String        @default("DAY")
+  rate            Float
+  overtimeHours   Float         @default(0)
+  overtimeRate    Float?
+  totalCost       Float
+  source          String        @default("HARD_RULE")
+  ruleId          String?
+  rule            CrewRule?     @relation(fields: [ruleId], references: [id])
+  explanation     String?
+  createdAt       DateTime      @default(now())
+
+  @@map("estimate_crew_items")
+}
+
+model EstimateComparable {
+  id                  String          @id @default(cuid())
+  estimateId          String
+  estimate            Estimate        @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  historicalEventId   String
+  historicalEvent     HistoricalEvent @relation(fields: [historicalEventId], references: [id])
+  similarityScore     Float
+  similarityBreakdown Json
+  rank                Int
+  createdAt           DateTime        @default(now())
+
+  @@map("estimate_comparables")
+}
+
+/// confidenceLevel: HIGH | MEDIUM | LOW
+model EstimateResult {
+  id                 String   @id @default(cuid())
+  estimateId         String
+  estimate           Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  lowPrice           Float
+  highPrice          Float
+  mostLikelyPrice    Float
+  confidenceLevel    String
+  confidenceScore    Float
+  marginEstimate     Float?
+  explanation        Json
+  generatedAt        DateTime @default(now())
+
+  @@map("estimate_results")
+}
+
+// ---------------------------------------------------------------------------
+// Historical show database
+// ---------------------------------------------------------------------------
+
+/// dataQuality: VERIFIED | IMPORTED_UNVERIFIED
+model HistoricalEvent {
+  id                              String   @id @default(cuid())
+  eventName                       String
+  clientName                      String?
+  eventType                       String?
+  venueName                       String?
+  city                            String?
+  state                           String?
+  attendees                       Int?
+  roomSqft                        Int?
+  numGeneralSessionRooms          Int?
+  numBreakoutRooms                Int?
+  numSimultaneousBreakoutRooms    Int?
+  setupDays                       Float?
+  rehearsalDays                   Float?
+  showDays                        Float?
+  strikeDays                      Float?
+  ledSizeSqft                     Float?
+  projectionUsed                  Boolean? @default(false)
+  cameraCount                     Int?
+  audioComplexity                 String?
+  videoComplexity                 String?
+  ledComplexity                   String?
+  lightingComplexity              String?
+  scenicComplexity                String?
+  unionLabor                      Boolean? @default(false)
+  eventDate                       DateTime?
+  quotedAmount                    Float?
+  finalSellingPrice               Float?
+  discountAmount                  Float?
+  internalCost                    Float?
+  grossMargin                     Float?
+  notes                           String?
+  dataQuality                     String   @default("VERIFIED")
+  importRowId                     String?  @unique
+  importRow                       HistoricalImportRow? @relation(fields: [importRowId], references: [id])
+  createdBy                       String?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  equipment      HistoricalEventEquipment[]
+  crew           HistoricalEventCrew[]
+  comparables    EstimateComparable[]
+
+  @@map("historical_events")
+}
+
+model HistoricalEventEquipment {
+  id                String          @id @default(cuid())
+  historicalEventId String
+  historicalEvent   HistoricalEvent @relation(fields: [historicalEventId], references: [id], onDelete: Cascade)
+  department        String
+  category          String
+  name              String
+  quantity          Float @default(1)
+  /// What this line actually cost/sold for on the real invoice, when known — lets a bundled
+  /// cost (e.g. one breakout room's AV package) stay attributed to its own line instead of
+  /// disappearing into the show's single aggregate total.
+  cost              Float?
+  notes             String?
+
+  @@map("historical_event_equipment")
+}
+
+model HistoricalEventCrew {
+  id                String          @id @default(cuid())
+  historicalEventId String
+  historicalEvent   HistoricalEvent @relation(fields: [historicalEventId], references: [id], onDelete: Cascade)
+  positionId        String
+  position          LaborPosition   @relation(fields: [positionId], references: [id])
+  quantity          Int
+  days              Float
+  hours             Float?
+  overtimeHours     Float @default(0)
+  /// What this crew line actually cost on the real invoice, when known — same purpose as
+  /// HistoricalEventEquipment.cost: keeps crew spend attributable on its own, not folded into
+  /// the show's single aggregate total.
+  cost              Float?
+  notes             String?
+
+  @@map("historical_event_crew")
+}
+
+// ---------------------------------------------------------------------------
+// Learning
+// ---------------------------------------------------------------------------
+
+/// confidenceLevel: HIGH | MEDIUM | LOW
+/// status: PROPOSED | APPROVED | REJECTED
+model LearnedStaffingPattern {
+  id               String        @id @default(cuid())
+  positionId       String
+  position         LaborPosition @relation(fields: [positionId], references: [id])
+  conditionText    String
+  condition        Json
+  sampleSize       Int
+  matchCount       Int
+  confidenceScore  Float
+  confidenceLevel  String
+  status           String        @default("PROPOSED")
+  approvedRuleId   String?
+  approvedRule     CrewRule?     @relation(fields: [approvedRuleId], references: [id])
+  computedAt       DateTime      @default(now())
+  reviewedAt       DateTime?
+  reviewedBy       String?
+
+  @@map("learned_staffing_patterns")
+}
+
+// ---------------------------------------------------------------------------
+// Historical data import
+// ---------------------------------------------------------------------------
+
+/// status: UPLOADED | MAPPED | REVIEWED | COMPLETED
+model HistoricalImportBatch {
+  id               String   @id @default(cuid())
+  originalFilename String
+  storagePath      String
+  uploadedBy       String?
+  columnMapping    Json?
+  status           String   @default("UPLOADED")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  rows             HistoricalImportRow[]
+
+  @@map("historical_import_batches")
+}
+
+/// status: PENDING | APPROVED | REJECTED
+model HistoricalImportRow {
+  id                String                 @id @default(cuid())
+  batchId           String
+  batch             HistoricalImportBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowIndex          Int
+  rawData           Json
+  mappedData        Json?
+  status            String                 @default("PENDING")
+  reviewerNotes      String?
+  historicalEvent   HistoricalEvent?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@map("historical_import_rows")
+}
