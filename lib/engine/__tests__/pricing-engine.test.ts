@@ -8,7 +8,6 @@ import {
   departmentSubtotals,
   weightedAverage,
   dayRateMultiplier,
-  gearRentalTierMultiplier,
   HOLIDAY_SURCHARGE_RATE,
   WEEKEND_STAGEHAND_SURCHARGE_RATE,
   type ScheduleDays,
@@ -67,45 +66,6 @@ describe("computeEquipmentLineItems", () => {
       { department: "VIDEO", complexityLevel: "SMALL", packageId: "p2", packageName: "b", items: [{ equipmentItemId: "e2", name: "n", category: "c", department: "VIDEO", quantity: 1, sellRate: 250 }] },
     ]);
     expect(departmentSubtotals(lineItems)).toEqual({ AUDIO: 100, VIDEO: 250 });
-  });
-
-  it("scales rental-gear departments by the rental tier multiplier", () => {
-    const lineItems = computeEquipmentLineItems(
-      [{ department: "AUDIO", complexityLevel: "SMALL", packageId: "p1", packageName: "a", items: [{ equipmentItemId: "e1", name: "n", category: "c", department: "AUDIO", quantity: 2, sellRate: 100 }] }],
-      3,
-    );
-    expect(lineItems[0].unitPrice).toBe(300);
-    expect(lineItems[0].extendedPrice).toBe(600);
-  });
-
-  it("does not scale Trucking/Travel by the rental tier multiplier", () => {
-    const lineItems = computeEquipmentLineItems(
-      [
-        { department: "TRUCKING", complexityLevel: "SMALL", packageId: "p1", packageName: "a", items: [{ equipmentItemId: "e1", name: "n", category: "c", department: "TRUCKING", quantity: 1, sellRate: 500 }] },
-        { department: "TRAVEL", complexityLevel: "SMALL", packageId: "p2", packageName: "b", items: [{ equipmentItemId: "e2", name: "n", category: "c", department: "TRAVEL", quantity: 1, sellRate: 200 }] },
-      ],
-      4,
-    );
-    expect(lineItems[0].extendedPrice).toBe(500);
-    expect(lineItems[1].extendedPrice).toBe(200);
-  });
-});
-
-describe("gearRentalTierMultiplier", () => {
-  it("returns 1x for a single day", () => {
-    expect(gearRentalTierMultiplier(1)).toBe(1);
-  });
-  it("returns 2x for 2-7 days", () => {
-    expect(gearRentalTierMultiplier(2)).toBe(2);
-    expect(gearRentalTierMultiplier(7)).toBe(2);
-  });
-  it("returns 3x for 8-13 days", () => {
-    expect(gearRentalTierMultiplier(8)).toBe(3);
-    expect(gearRentalTierMultiplier(13)).toBe(3);
-  });
-  it("returns 4x for 14+ days", () => {
-    expect(gearRentalTierMultiplier(14)).toBe(4);
-    expect(gearRentalTierMultiplier(30)).toBe(4);
   });
 });
 

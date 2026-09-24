@@ -11,7 +11,6 @@ import {
   sumLineItems,
   departmentSubtotals,
   scheduleGeneratesOvertime,
-  gearRentalTierMultiplier,
   STANDARD_HOURS_PER_DAY,
   HOLIDAY_SURCHARGE_RATE,
   WEEKEND_STAGEHAND_SURCHARGE_RATE,
@@ -241,10 +240,9 @@ export async function generateEstimateResult(estimateId: string) {
   const laborRates = await prisma.laborRate.findMany({ where: { region: "default", active: true } });
   const rateByPosition = new Map(laborRates.map((r) => [r.positionId, r]));
 
-  // On-site days (for gear rental tiers) includes dark days — the crew doesn't
-  // work them, but the gear is still parked on site the whole span.
+  // Total on-site span (setup through strike, plus dark days) — used only to
+  // cross-check the entered show end date against the day counts below.
   const totalOnSiteDays = setupDays.value + rehearsalDays.value + showDays.value + strikeDays.value + darkDays.value;
-  const gearRentalMultiplier = gearRentalTierMultiplier(totalOnSiteDays);
 
   let weekendDayCount = 0;
   if (estimate.showStartDate) {
@@ -314,6 +312,18 @@ export async function generateEstimateResult(estimateId: string) {
     const complexityLevel = requirement?.complexityLevel ?? "NONE";
     if (complexityLevel === "NONE") continue;
 
+    // Travel equipment (flights/hotel/per diem) never applies to a non-travel
+    // gig, regardless of what the Travel Package scale is set to — the
+    // "Travel gig" checkbox is the single source of truth here.
+    if (department === "TRAVEL" && !estimate.isTravelGig) {
+      assumptions.push({
+        fieldName: "department:TRAVEL",
+        assumptionText: `Travel Package was set to ${complexityLevel} but "Travel gig" isn't checked — excluded from the total as an in-town show.`,
+        confidence: "MEDIUM",
+      });
+      continue;
+    }
+
     const pkg = packages.find((p) => p.department === department && p.complexityLevel === complexityLevel);
     if (!pkg) {
       assumptions.push({ fieldName: `department:${department}`, assumptionText: `No ${complexityLevel} package configured for ${department} — omitted from the automated total.`, confidence: "LOW" });
@@ -357,7 +367,7 @@ export async function generateEstimateResult(estimateId: string) {
     }
   }
 
-  const lineItems: ComputedLineItem[] = [...computeEquipmentLineItems(selectedPackages, gearRentalMultiplier), ...addOnLineItems];
+  const lineItems: ComputedLineItem[] = [...computeEquipmentLineItems(selectedPackages), ...addOnLineItems];
   const equipmentTotal = sumLineItems(lineItems);
   const laborTotal = computedCrew.reduce((sum, c) => sum + c.totalCost, 0);
   const travelLaborTotal = computedCrew.reduce((sum, c) => sum + c.travelCost, 0);
@@ -405,8 +415,7 @@ export async function generateEstimateResult(estimateId: string) {
     ...(estimate.isTravelGig ? ["Travel gig — each crew member is charged a half-day rate each way (there and home)"] : []),
     ...(estimate.isHoliday ? [`Holiday show — flat ${Math.round(HOLIDAY_SURCHARGE_RATE * 100)}% crew cost surcharge applied`] : []),
     ...(weekendSurchargeTotal > 0 ? [`${weekendDayCount} weekend day(s) in schedule — ${Math.round(WEEKEND_STAGEHAND_SURCHARGE_RATE * 100)}% Stagehand premium applied`] : []),
-    ...(gearRentalMultiplier > 1 ? [`Multi-day gear rental: ${gearRentalMultiplier}x tier applied (${totalOnSiteDays} total on-site days)`] : []),
-    ...(darkDays.value > 0 ? [`${darkDays.value} dark/dead day(s) — no crew cost, still counted toward gear rental length`] : []),
+    ...(darkDays.value > 0 ? [`${darkDays.value} dark/dead day(s) — no crew cost`] : []),
   ];
 
   const explanation = {

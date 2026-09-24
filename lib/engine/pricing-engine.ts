@@ -2,42 +2,6 @@ import type { ConfidenceLevel, Department, LineItemSource } from "./types";
 import type { CrewPlanItem } from "./crew-engine";
 
 // ---------------------------------------------------------------------------
-// Gear rental-length tiers
-// ---------------------------------------------------------------------------
-
-/**
- * Departments actually renting equipment for the run of the show. Trucking
- * (a flat per-trip cost) and Travel (per-person flights/hotel/per diem, not
- * rental gear) don't scale with rental duration, so they're deliberately
- * excluded — Add-ons are flat one-time fees and never go through this path
- * at all (computed separately in generate-estimate.ts).
- */
-export const GEAR_RENTAL_TIER_DEPARTMENTS: ReadonlySet<Department> = new Set([
-  "AUDIO",
-  "VIDEO",
-  "STREAMING",
-  "LED",
-  "LIGHTING",
-  "SCENIC",
-  "COMMUNICATIONS",
-  "RIGGING",
-  "OTHER",
-]);
-
-/**
- * OTL's rental-length pricing tiers: a package's sell rate is a 1-day rate,
- * multiplied up based on how long the gear is actually on site (setup
- * through strike, including any dark days) — not billed flat regardless of
- * show length.
- */
-export function gearRentalTierMultiplier(totalOnSiteDays: number): number {
-  if (totalOnSiteDays <= 1) return 1;
-  if (totalOnSiteDays <= 7) return 2;
-  if (totalOnSiteDays <= 13) return 3;
-  return 4;
-}
-
-// ---------------------------------------------------------------------------
 // Equipment / department pricing
 // ---------------------------------------------------------------------------
 
@@ -73,25 +37,22 @@ export interface ComputedLineItem {
  * Equipment drives the dollar estimate for every non-labor department
  * (audio/video/led/lighting/scenic/comms/rigging/trucking/travel/other):
  * a department's chosen complexity level resolves to an equipment package,
- * and each package item becomes a priced line item. A package's sell rate
- * is a 1-day rate — `rentalTierMultiplier` (see gearRentalTierMultiplier)
- * scales it up for longer engagements, but only for departments that are
- * actually rented gear (GEAR_RENTAL_TIER_DEPARTMENTS).
+ * and each package item becomes a priced line item. Package sell rates are
+ * already the full show-rate price OTL charges (not a per-day rate to be
+ * multiplied up for longer engagements).
  */
-export function computeEquipmentLineItems(selectedPackages: DepartmentPackageInput[], rentalTierMultiplier = 1): ComputedLineItem[] {
+export function computeEquipmentLineItems(selectedPackages: DepartmentPackageInput[]): ComputedLineItem[] {
   const lineItems: ComputedLineItem[] = [];
   for (const pkg of selectedPackages) {
-    const multiplier = GEAR_RENTAL_TIER_DEPARTMENTS.has(pkg.department) ? rentalTierMultiplier : 1;
     for (const item of pkg.items) {
-      const unitPrice = item.sellRate * multiplier;
       lineItems.push({
         department: pkg.department,
         category: item.category,
         description: item.name,
         equipmentItemId: item.equipmentItemId,
         quantity: item.quantity,
-        unitPrice,
-        extendedPrice: item.quantity * unitPrice,
+        unitPrice: item.sellRate,
+        extendedPrice: item.quantity * item.sellRate,
         source: "RULE",
       });
     }

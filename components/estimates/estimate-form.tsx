@@ -82,10 +82,10 @@ export function EstimateForm({
         </CardHeader>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Event name *">
-            <TextInput name="eventName" required defaultValue={v.eventName ?? "Orange Thread Live"} placeholder="Acme Corp Annual Sales Kickoff" />
+            <TextInput name="eventName" required defaultValue={v.eventName} placeholder="Acme Corp Annual Sales Kickoff" />
           </Field>
           <Field label="Client">
-            <TextInput name="clientName" defaultValue={v.clientName ?? "Orange Thread Live"} placeholder="Acme Corporation" />
+            <TextInput name="clientName" defaultValue={v.clientName} placeholder="Acme Corporation" />
           </Field>
           <Field label="Attendees">
             <TextInput name="attendees" type="number" min={0} defaultValue={v.attendees ?? undefined} placeholder="500" />
@@ -115,7 +115,7 @@ export function EstimateForm({
             <TextInput name="showEndDate" type="date" defaultValue={v.showEndDate} />
           </Field>
           <Field label="General session rooms">
-            <TextInput name="numGeneralSessionRooms" type="number" min={0} defaultValue={v.numGeneralSessionRooms ?? undefined} placeholder="1" />
+            <TextInput name="numGeneralSessionRooms" type="number" min={0} defaultValue={v.numGeneralSessionRooms ?? 0} placeholder="1" />
           </Field>
           <Field label="Breakout rooms">
             <TextInput name="numBreakoutRooms" type="number" min={0} defaultValue={v.numBreakoutRooms ?? 0} placeholder="6" />
@@ -124,21 +124,21 @@ export function EstimateForm({
             <TextInput name="numSimultaneousBreakoutRooms" type="number" min={0} defaultValue={v.numSimultaneousBreakoutRooms ?? 0} placeholder="4" />
           </Field>
           <Field label="Expected hours / show day" hint="12 standard · 1.25x day rate 12–14hrs · 1.5x 14–16hrs · capped at 16">
-            <TextInput name="hoursPerDay" type="number" min={1} max={16} defaultValue={v.hoursPerDay ?? undefined} placeholder="12" />
+            <TextInput name="hoursPerDay" type="number" min={1} max={16} defaultValue={v.hoursPerDay ?? 12} placeholder="12" />
           </Field>
           <Field label="Setup days" hint="Leave at 0 if setup happens same-day as the show">
             <TextInput name="setupDays" type="number" min={0} defaultValue={v.setupDays ?? 0} placeholder="2" />
           </Field>
           <Field label="Rehearsal days" hint="Leave at 0 if rehearsal happens same-day as the show">
-            <TextInput name="rehearsalDays" type="number" min={0} defaultValue={v.rehearsalDays ?? undefined} placeholder="0" />
+            <TextInput name="rehearsalDays" type="number" min={0} defaultValue={v.rehearsalDays ?? 0} placeholder="0" />
           </Field>
           <Field label="Show days">
-            <TextInput name="showDays" type="number" min={0} defaultValue={v.showDays ?? undefined} placeholder="2" />
+            <TextInput name="showDays" type="number" min={0} defaultValue={v.showDays ?? 0} placeholder="2" />
           </Field>
           <Field label="Strike days" hint="Leave at 0 if strike happens same-day as the show">
             <TextInput name="strikeDays" type="number" min={0} defaultValue={v.strikeDays ?? 0} placeholder="1" />
           </Field>
-          <Field label="Dark/dead days" hint="On-site but no crew activity — still counts toward gear rental length">
+          <Field label="Dark/dead days" hint="On-site but no crew activity">
             <TextInput name="darkDays" type="number" min={0} defaultValue={v.darkDays ?? 0} placeholder="0" />
           </Field>
         </div>
