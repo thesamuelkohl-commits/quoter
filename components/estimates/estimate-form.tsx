@@ -25,8 +25,6 @@ const DEPARTMENT_SECTIONS: { department: Department; label: string; description:
 export interface EstimateFormValues {
   eventName?: string;
   clientName?: string;
-  city?: string;
-  state?: string;
   attendees?: number | null;
   roomSqft?: number | null;
   targetBudget?: number | null;
@@ -62,6 +60,12 @@ export function EstimateForm({
   addOns?: AddOnOption[];
 }) {
   const v = defaultValues;
+  // Expanded by default only when editing an estimate that already has data here —
+  // a brand new estimate starts with just Event Basics and Rooms & Schedule showing.
+  const hasAdvancedDetails =
+    Object.values(v.departments ?? {}).some((d) => d.complexityLevel !== "NONE") ||
+    (v.selectedAddOnIds?.length ?? 0) > 0 ||
+    Boolean(v.specialRequirements);
 
   return (
     <form action={action} className="flex flex-col gap-6">
@@ -71,16 +75,10 @@ export function EstimateForm({
         </CardHeader>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Event name *">
-            <TextInput name="eventName" required defaultValue={v.eventName} placeholder="Acme Corp Annual Sales Kickoff" />
+            <TextInput name="eventName" required defaultValue={v.eventName ?? "Orange Thread Live"} placeholder="Acme Corp Annual Sales Kickoff" />
           </Field>
           <Field label="Client">
-            <TextInput name="clientName" defaultValue={v.clientName} placeholder="Acme Corporation" />
-          </Field>
-          <Field label="City">
-            <TextInput name="city" defaultValue={v.city} placeholder="Nashville" />
-          </Field>
-          <Field label="State">
-            <TextInput name="state" defaultValue={v.state} placeholder="TN" maxLength={2} />
+            <TextInput name="clientName" defaultValue={v.clientName ?? "Orange Thread Live"} placeholder="Acme Corporation" />
           </Field>
           <Field label="Attendees">
             <TextInput name="attendees" type="number" min={0} defaultValue={v.attendees ?? undefined} placeholder="500" />
@@ -149,85 +147,98 @@ export function EstimateForm({
         </div>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Department Requirements</CardTitle>
-        </CardHeader>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Pick a scale for anything the event needs. Leave a department at &quot;Not Needed&quot; if it isn&apos;t required — it will be
-          excluded from the estimate.
-        </p>
-        <div className="flex flex-col divide-y divide-border">
-          {DEPARTMENT_SECTIONS.map((section) => {
-            const dep = v.departments?.[section.department];
-            const openByDefault = ["AUDIO", "VIDEO"].includes(section.department) || Boolean(dep && dep.complexityLevel !== "NONE");
-            return (
-              <details key={section.department} className="py-3 first:pt-0 last:pb-0" open={openByDefault}>
-                <summary className="flex cursor-pointer items-center justify-between gap-3">
-                  <span>
-                    <span className="text-sm font-medium text-foreground">{section.label}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{section.description}</span>
-                  </span>
-                </summary>
-                <div className="mt-3 flex flex-col gap-3">
-                  <Field label="Scale">
-                    <ComplexityPicker
-                      name={`dept_${section.department}`}
-                      defaultValue={dep?.complexityLevel ?? "NONE"}
-                      department={section.department}
-                    />
-                  </Field>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {section.department === "VIDEO" && (
-                      <>
-                        <Field label="Camera count">
-                          <TextInput name="cameraCount" type="number" min={0} defaultValue={dep?.cameraCount} placeholder="2" />
-                        </Field>
-                        <label className="flex items-end gap-2 pb-2 text-sm text-foreground">
-                          <input type="checkbox" name="projectionUsed" defaultChecked={dep?.projectionUsed} className="h-4 w-4 rounded border-border" />
-                          Projection required
-                        </label>
-                      </>
-                    )}
-                    {section.department === "LED" && (
-                      <Field label="LED size (sqft)">
-                        <TextInput name="ledSizeSqft" type="number" min={0} defaultValue={dep?.ledSizeSqft} placeholder="400" />
+      <details className="group" open={hasAdvancedDetails}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm">
+          <span>
+            <span className="text-sm font-semibold text-foreground">Department Requirements, Add-Ons &amp; Notes</span>
+            <span className="ml-2 text-xs text-muted-foreground">Optional — expand to specify audio/video/lighting/etc., add-ons, or notes. Defaults apply if skipped.</span>
+          </span>
+          <span className="shrink-0 text-xs font-medium text-accent group-open:hidden">Show</span>
+          <span className="hidden shrink-0 text-xs font-medium text-accent group-open:inline">Hide</span>
+        </summary>
+
+        <div className="mt-6 flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Department Requirements</CardTitle>
+            </CardHeader>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Pick a scale for anything the event needs. Leave a department at &quot;Not Needed&quot; if it isn&apos;t required — it will be
+              excluded from the estimate.
+            </p>
+            <div className="flex flex-col divide-y divide-border">
+              {DEPARTMENT_SECTIONS.map((section) => {
+                const dep = v.departments?.[section.department];
+                const openByDefault = ["AUDIO", "VIDEO"].includes(section.department) || Boolean(dep && dep.complexityLevel !== "NONE");
+                return (
+                  <details key={section.department} className="py-3 first:pt-0 last:pb-0" open={openByDefault}>
+                    <summary className="flex cursor-pointer items-center justify-between gap-3">
+                      <span>
+                        <span className="text-sm font-medium text-foreground">{section.label}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">{section.description}</span>
+                      </span>
+                    </summary>
+                    <div className="mt-3 flex flex-col gap-3">
+                      <Field label="Scale">
+                        <ComplexityPicker
+                          name={`dept_${section.department}`}
+                          defaultValue={dep?.complexityLevel ?? "NONE"}
+                          department={section.department}
+                        />
                       </Field>
-                    )}
-                    <Field label="Notes">
-                      <TextInput name={`dept_${section.department}_notes`} defaultValue={dep?.notes ?? undefined} placeholder="Optional specifics" />
-                    </Field>
-                  </div>
-                </div>
-              </details>
-            );
-          })}
-        </div>
-      </Card>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {section.department === "VIDEO" && (
+                          <>
+                            <Field label="Camera count">
+                              <TextInput name="cameraCount" type="number" min={0} defaultValue={dep?.cameraCount} placeholder="2" />
+                            </Field>
+                            <label className="flex items-end gap-2 pb-2 text-sm text-foreground">
+                              <input type="checkbox" name="projectionUsed" defaultChecked={dep?.projectionUsed} className="h-4 w-4 rounded border-border" />
+                              Projection required
+                            </label>
+                          </>
+                        )}
+                        {section.department === "LED" && (
+                          <Field label="LED size (sqft)">
+                            <TextInput name="ledSizeSqft" type="number" min={0} defaultValue={dep?.ledSizeSqft} placeholder="400" />
+                          </Field>
+                        )}
+                        <Field label="Notes">
+                          <TextInput name={`dept_${section.department}_notes`} defaultValue={dep?.notes ?? undefined} placeholder="Optional specifics" />
+                        </Field>
+                      </div>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          </Card>
 
-      {addOns.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Add-Ons</CardTitle>
-          </CardHeader>
-          <p className="mb-4 text-xs text-muted-foreground">Optional flat-fee extras — click any that apply.</p>
-          <AddOnPicker options={addOns} selectedIds={v.selectedAddOnIds} />
-        </Card>
-      )}
+          {addOns.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Add-Ons</CardTitle>
+              </CardHeader>
+              <p className="mb-4 text-xs text-muted-foreground">Optional flat-fee extras — click any that apply.</p>
+              <AddOnPicker options={addOns} selectedIds={v.selectedAddOnIds} />
+            </Card>
+          )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Other Requirements</CardTitle>
-        </CardHeader>
-        <Field label="Special requirements / notes" hint="Free text — scanned for department and scheduling signals to suggest as assumptions">
-          <TextArea name="specialRequirements" rows={4} defaultValue={v.specialRequirements} placeholder="e.g. Client wants an LED wall behind the main stage, IMAG with two cameras, union house, same-day turn between rooms..." />
-        </Field>
-        <div className="mt-4">
-          <Field label="Your name" hint="Optional — recorded on the estimate">
-            <TextInput name="createdBy" defaultValue={v.createdBy} placeholder="Jordan Smith" className="max-w-xs" />
-          </Field>
+          <Card>
+            <CardHeader>
+              <CardTitle>Other Requirements</CardTitle>
+            </CardHeader>
+            <Field label="Special requirements / notes" hint="Free text — scanned for department and scheduling signals to suggest as assumptions">
+              <TextArea name="specialRequirements" rows={4} defaultValue={v.specialRequirements} placeholder="e.g. Client wants an LED wall behind the main stage, IMAG with two cameras, union house, same-day turn between rooms..." />
+            </Field>
+            <div className="mt-4">
+              <Field label="Your name" hint="Optional — recorded on the estimate">
+                <TextInput name="createdBy" defaultValue={v.createdBy} placeholder="Jordan Smith" className="max-w-xs" />
+              </Field>
+            </div>
+          </Card>
         </div>
-      </Card>
+      </details>
 
       <div className="flex justify-end gap-3">
         <Button type="submit">{submitLabel}</Button>

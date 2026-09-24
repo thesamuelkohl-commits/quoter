@@ -91,11 +91,9 @@ export async function generateEstimateResult(estimateId: string) {
 
   // The salesperson always explicitly marks in-town vs. travel gig via a
   // checkbox, so this is always a known input (unlike the old city-based
-  // inference it replaced).
+  // inference it replaced). City/state are no longer collected on the
+  // intake form, so there's nothing to flag as a per-estimate data gap here.
   const travelKnown = true;
-  if (!estimate.city) {
-    assumptions.push({ fieldName: "city", assumptionText: "Event city not specified — trucking distance is unknown.", confidence: "LOW" });
-  }
 
   // --- 2. Department requirements + AI-suggested hints on unset departments -
   const departmentMap = new Map(estimate.departments.map((d) => [d.department as Department, d]));

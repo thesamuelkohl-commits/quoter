@@ -31,8 +31,6 @@ export default async function EditEstimatePage({ params }: { params: Promise<{ i
   const defaultValues: EstimateFormValues = {
     eventName: estimate.eventName,
     clientName: estimate.client?.name,
-    city: estimate.city ?? undefined,
-    state: estimate.state ?? undefined,
     attendees: estimate.attendees,
     roomSqft: estimate.roomSqft,
     targetBudget: estimate.targetBudget,
