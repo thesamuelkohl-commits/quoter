@@ -9,7 +9,7 @@ const TIER_PHOTOS: Partial<Record<Department, Partial<Record<ComplexityLevel, st
   AUDIO: { SMALL: "/images/tiers/audio-small.jpg", MEDIUM: "/images/tiers/audio-medium.jpg", LARGE: "/images/tiers/audio-large.jpg" },
   LED: { MEDIUM: "/images/tiers/led-medium.jpg" },
   LIGHTING: { MEDIUM: "/images/tiers/lighting-medium.jpg", LARGE: "/images/tiers/lighting-large.jpg" },
-  VIDEO: { SMALL: "/images/tiers/video-small.jpg", ARENA: "/images/tiers/video-arena.jpg" },
+  VIDEO: { SMALL: "/images/tiers/video-small.jpg", MEDIUM: "/images/tiers/video-medium.jpg", ARENA: "/images/tiers/video-arena.jpg" },
 };
 
 export function tierPhoto(department: Department | undefined, level: ComplexityLevel): string | undefined {
