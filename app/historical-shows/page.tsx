@@ -4,6 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 
+// This page lists directly-mutated data (including one-off historical data
+// imports run outside the app), so it must never be statically cached —
+// otherwise new/changed records don't show up until the next deploy.
+export const dynamic = "force-dynamic";
+
 export default async function HistoricalShowsPage() {
   const events = await prisma.historicalEvent.findMany({ orderBy: { eventDate: "desc" } });
 

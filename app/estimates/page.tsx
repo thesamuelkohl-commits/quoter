@@ -6,6 +6,10 @@ import { LinkButton } from "@/components/ui/button";
 import { DeleteEstimateButton } from "@/components/estimates/delete-estimate-button";
 import type { ConfidenceLevel } from "@/lib/engine/types";
 
+// Must never be statically cached, or newly created/deleted estimates
+// won't show up here until the next deploy.
+export const dynamic = "force-dynamic";
+
 export default async function EstimatesListPage() {
   const estimates = await prisma.estimate.findMany({
     orderBy: { updatedAt: "desc" },

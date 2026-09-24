@@ -5,6 +5,10 @@ import { Badge, confidenceTone } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import type { ConfidenceLevel } from "@/lib/engine/types";
 
+// Must never be statically cached, or these counts/recent-activity go stale
+// until the next deploy.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const [estimateCount, historicalCount, recentEstimates] = await Promise.all([
     prisma.estimate.count(),

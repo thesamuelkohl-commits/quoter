@@ -6,6 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Select, TextInput } from "@/components/ui/form-field";
 
+// Must never be statically cached, or admin edits to pricing don't show up
+// here until the next deploy.
+export const dynamic = "force-dynamic";
+
 export default async function PricingPage() {
   const [items, packages] = await Promise.all([
     prisma.equipmentItem.findMany({ orderBy: [{ department: "asc" }, { category: "asc" }, { name: "asc" }] }),

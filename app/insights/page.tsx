@@ -7,6 +7,10 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, confidenceTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+// Must never be statically cached, or newly imported historical shows don't
+// factor into computed patterns here until the next deploy.
+export const dynamic = "force-dynamic";
+
 const HOME_CITY = "nashville";
 
 function toProfile(e: {

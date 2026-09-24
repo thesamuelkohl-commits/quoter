@@ -6,6 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Select, TextInput } from "@/components/ui/form-field";
 
+// Must never be statically cached, or admin edits don't show up here until
+// the next deploy.
+export const dynamic = "force-dynamic";
+
 export default async function AdminPage() {
   const [laborRates, positions, travelAssumptions, truckingRates, appSettings] = await Promise.all([
     prisma.laborRate.findMany({ orderBy: { standardRate: "desc" }, include: { position: true } }),

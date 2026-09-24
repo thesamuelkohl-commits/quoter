@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Select, TextArea, TextInput } from "@/components/ui/form-field";
 
+// Must never be statically cached, or admin edits to crew rules don't show
+// up here until the next deploy.
+export const dynamic = "force-dynamic";
+
 export default async function RulesPage() {
   const [rules, positions] = await Promise.all([
     prisma.crewRule.findMany({ orderBy: [{ active: "desc" }, { priority: "desc" }], include: { position: true } }),
