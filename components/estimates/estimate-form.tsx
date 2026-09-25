@@ -82,19 +82,19 @@ export function EstimateForm({
         </CardHeader>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Event name *">
-            <TextInput name="eventName" required defaultValue={v.eventName} placeholder="Acme Corp Annual Sales Kickoff" />
+            <TextInput name="eventName" required defaultValue={v.eventName} placeholder="Orange Thread Live 2026 Bash" />
           </Field>
           <Field label="Client">
-            <TextInput name="clientName" defaultValue={v.clientName} placeholder="Acme Corporation" />
+            <TextInput name="clientName" defaultValue={v.clientName} placeholder="Orange Thread Live" />
           </Field>
           <Field label="Attendees">
             <TextInput name="attendees" type="number" min={0} defaultValue={v.attendees ?? undefined} placeholder="500" />
           </Field>
           <Field label="Room square footage">
-            <TextInput name="roomSqft" type="number" min={0} defaultValue={v.roomSqft ?? undefined} placeholder="12000" />
+            <TextInput name="roomSqft" type="number" min={0} defaultValue={v.roomSqft ?? undefined} placeholder="7500" />
           </Field>
           <Field label="Target budget" hint="Optional — used later for scope-adjustment suggestions">
-            <TextInput name="targetBudget" type="number" min={0} defaultValue={v.targetBudget ?? undefined} placeholder="45000" />
+            <TextInput name="targetBudget" type="number" min={0} defaultValue={v.targetBudget ?? undefined} placeholder="75000" />
           </Field>
         </div>
         <label className="mt-4 flex items-center gap-2 text-sm text-foreground">
